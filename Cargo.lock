@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "circuit-solver"
+name = "pixie"
 version = "0.1.0"

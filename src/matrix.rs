@@ -63,8 +63,7 @@ pub enum LinAlgError {
     IncompatibleDimensions,
 }
 
-pub fn solve(a: Matrix<f32>, rhs: Matrix<f32>) -> Result<Matrix<f32>, LinAlgError>
-{
+pub fn solve(a: Matrix<f64>, rhs: Matrix<f64>) -> Result<Matrix<f64>, LinAlgError> {
     if a.num_col != a.num_rows || rhs.num_rows != a.num_col || rhs.num_col != 1 {
         return Err(LinAlgError::IncompatibleDimensions);
     }

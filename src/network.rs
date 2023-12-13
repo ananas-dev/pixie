@@ -85,7 +85,7 @@ pub struct NetworkBuilder {
 impl NetworkBuilder {
     pub fn new() -> NetworkBuilder {
         let mut nodes = HashSet::new();
-        nodes.insert(0); // Insert the ground node
+        nodes.insert(GROUND);
 
         NetworkBuilder {
             components: Vec::new(),

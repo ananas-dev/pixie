@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::matrix::Matrix;
+use crate::linalg::{Matrix, Vector};
 
 const GROUND: usize = 0;
 
@@ -18,11 +18,11 @@ pub struct Network {
 }
 
 impl Network {
-    pub fn compile(&self) -> (Matrix<f64>, Matrix<f64>) {
+    pub fn compile(&self) -> (Matrix<f64>, Vector<f64>) {
         let n = self.num_nodes + self.num_vsrc;
 
         let mut y = Matrix::repeat(n, n, 0.);
-        let mut rhs = Matrix::repeat(n, 1, 0.);
+        let mut rhs = Vector::repeat(n, 0.);
         let mut vsrc_counter = 0;
 
         for c in self.components.iter() {
@@ -45,11 +45,11 @@ impl Network {
                 }
                 Component::CurrentSource { p, n, i } => {
                     if p != GROUND {
-                        rhs[(p - 1, 0)] += i;
+                        rhs[p - 1] += i;
                     }
 
                     if n != GROUND {
-                        rhs[(n - 1, 0)] -= i;
+                        rhs[n - 1] -= i;
                     }
                 }
                 Component::VoltageSource { p, n, v } => {
@@ -66,7 +66,7 @@ impl Network {
                         y[(n - 1, abs_index)] = -1.;
                     }
 
-                    rhs[(abs_index, 0)] = v;
+                    rhs[abs_index] = v;
                 }
             }
         }

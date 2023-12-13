@@ -3,8 +3,8 @@ use std::ops::{Index, IndexMut};
 
 #[derive(Clone)]
 pub struct Matrix<T> {
-    pub num_rows: usize,
-    pub num_col: usize,
+    num_rows: usize,
+    num_col: usize,
     data: Vec<Vec<T>>,
 }
 
@@ -21,9 +21,9 @@ impl<T: Copy> Matrix<T> {
         self.data.swap(a, b)
     }
 
-    pub fn augment(&mut self, vec: &Matrix<T>) {
+    pub fn augment(&mut self, vec: &Vector<T>) {
         for row in 0..self.num_rows {
-            self.data[row].push(vec[(row, 0)])
+            self.data[row].push(vec[row])
         }
 
         self.num_col += 1;
@@ -57,14 +57,54 @@ impl<T: fmt::Display> fmt::Display for Matrix<T> {
     }
 }
 
+#[derive(Clone)]
+pub struct Vector<T> {
+    len: usize,
+    data: Vec<T>,
+}
+
+impl<T: Copy> Vector<T> {
+    pub fn repeat(len: usize, value: T) -> Vector<T> {
+        Vector {
+            len,
+            data: vec![value; len],
+        }
+    }
+}
+
+impl<T> Index<usize> for Vector<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.data[index]
+    }
+}
+
+impl<T> IndexMut<usize> for Vector<T> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.data[index]
+    }
+}
+
+impl<T: fmt::Display> fmt::Display for Vector<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "| ")?;
+        for el in self.data.iter() {
+            write!(f, "{:4.1} ", el)?;
+        }
+        write!(f, "|")?;
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub enum LinAlgError {
     SingularMatrix,
     IncompatibleDimensions,
 }
 
-pub fn solve(a: Matrix<f64>, rhs: Matrix<f64>) -> Result<Matrix<f64>, LinAlgError> {
-    if a.num_col != a.num_rows || rhs.num_rows != a.num_col || rhs.num_col != 1 {
+pub fn solve(a: Matrix<f64>, rhs: Vector<f64>) -> Result<Vector<f64>, LinAlgError> {
+    if a.num_col != a.num_rows || rhs.len != a.num_col {
         return Err(LinAlgError::IncompatibleDimensions);
     }
 
@@ -103,16 +143,16 @@ pub fn solve(a: Matrix<f64>, rhs: Matrix<f64>) -> Result<Matrix<f64>, LinAlgErro
         }
     }
 
-    let mut x = Matrix::repeat(n, 1, 0.);
+    let mut x = Vector::repeat(n, 0.);
 
     for i in (0..n).rev() {
-        x[(i, 0)] = system[(i, n)];
+        x[i] = system[(i, n)];
 
         for j in i + 1..n {
-            x[(i, 0)] -= system[(i, j)] * x[(j, 0)];
+            x[i] -= system[(i, j)] * x[j];
         }
 
-        x[(i, 0)] = x[(i, 0)] / system[(i, i)];
+        x[i] = x[i] / system[(i, i)];
     }
 
     Ok(x)

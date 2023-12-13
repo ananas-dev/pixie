@@ -1,8 +1,8 @@
-use matrix::solve;
+use linalg::solve;
 
 use crate::network::{Component, NetworkBuilder};
 
-mod matrix;
+mod linalg;
 mod network;
 
 fn main() {

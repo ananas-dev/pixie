@@ -1,78 +1,26 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, slice::Iter};
 
-use crate::linalg::{Matrix, Vector};
-
-const GROUND: usize = 0;
+pub const GND: usize = 0;
 
 #[derive(Clone, Copy)]
 pub enum Component {
     Resistor { a: usize, b: usize, r: f64 },
     CurrentSource { n: usize, p: usize, i: f64 },
     VoltageSource { n: usize, p: usize, v: f64 },
+    Diode { n: usize, p: usize, is: f64, t: f64 },
 }
 
 pub struct Network {
     components: Vec<Component>,
-    num_nodes: usize,
-    num_vsrc: usize,
+    pub num_nodes: usize,
+    pub num_vsrc: usize,
 }
 
 impl Network {
-    pub fn compile(&self) -> (Matrix<f64>, Vector<f64>) {
-        let n = self.num_nodes + self.num_vsrc;
-
-        let mut y = Matrix::repeat(n, n, 0.);
-        let mut rhs = Vector::repeat(n, 0.);
-        let mut vsrc_counter = 0;
-
-        for c in self.components.iter() {
-            match *c {
-                Component::Resistor { a, b, r } => {
-                    let conductance = 1. / r;
-
-                    if a != GROUND {
-                        y[(a - 1, a - 1)] += conductance;
-                    }
-
-                    if b != GROUND {
-                        y[(b - 1, b - 1)] += conductance;
-                    }
-
-                    if a != GROUND && b != GROUND {
-                        y[(a - 1, b - 1)] -= conductance;
-                        y[(b - 1, a - 1)] -= conductance;
-                    }
-                }
-                Component::CurrentSource { p, n, i } => {
-                    if p != GROUND {
-                        rhs[p - 1] += i;
-                    }
-
-                    if n != GROUND {
-                        rhs[n - 1] -= i;
-                    }
-                }
-                Component::VoltageSource { p, n, v } => {
-                    let abs_index = self.num_nodes + vsrc_counter;
-                    vsrc_counter += 1;
-
-                    if p != GROUND {
-                        y[(abs_index, p - 1)] = 1.;
-                        y[(p - 1, abs_index)] = 1.;
-                    }
-
-                    if n != GROUND {
-                        y[(abs_index, n - 1)] = -1.;
-                        y[(n - 1, abs_index)] = -1.;
-                    }
-
-                    rhs[abs_index] = v;
-                }
-            }
-        }
-
-        (y, rhs)
+    pub fn iter(&self) -> Iter<'_, Component> {
+        self.components.iter()
     }
+
 }
 
 pub struct NetworkBuilder {
@@ -85,7 +33,7 @@ pub struct NetworkBuilder {
 impl NetworkBuilder {
     pub fn new() -> NetworkBuilder {
         let mut nodes = HashSet::new();
-        nodes.insert(GROUND);
+        nodes.insert(GND);
 
         NetworkBuilder {
             components: Vec::new(),
@@ -99,6 +47,9 @@ impl NetworkBuilder {
         match component {
             Component::Resistor { a, b, .. } => {
                 self.update_node_pair(a, b);
+            }
+            Component::Diode { p, n, .. } => {
+                self.update_node_pair(p, n);
             }
             Component::CurrentSource { p, n, .. } => {
                 self.update_node_pair(p, n);

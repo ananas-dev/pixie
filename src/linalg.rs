@@ -2,18 +2,18 @@ use core::fmt;
 use std::ops::{Index, IndexMut};
 
 #[derive(Clone)]
-pub struct Matrix<T> {
+pub struct DenseMatrix {
     num_rows: usize,
     num_col: usize,
-    data: Vec<Vec<T>>,
+    data: Vec<Vec<f64>>,
 }
 
-impl<T: Copy> Matrix<T> {
-    pub fn repeat(r: usize, c: usize, value: T) -> Matrix<T> {
-        Matrix {
+impl DenseMatrix {
+    pub fn zero(r: usize, c: usize) -> DenseMatrix {
+        DenseMatrix {
             num_rows: r,
             num_col: c,
-            data: vec![vec![value; c]; r],
+            data: vec![vec![0.; c]; r],
         }
     }
 
@@ -21,7 +21,7 @@ impl<T: Copy> Matrix<T> {
         self.data.swap(a, b)
     }
 
-    pub fn augment(&mut self, vec: &Vector<T>) {
+    pub fn augment(&mut self, vec: &Vector) {
         for row in 0..self.num_rows {
             self.data[row].push(vec[row])
         }
@@ -30,21 +30,21 @@ impl<T: Copy> Matrix<T> {
     }
 }
 
-impl<T> Index<(usize, usize)> for Matrix<T> {
-    type Output = T;
+impl Index<(usize, usize)> for DenseMatrix {
+    type Output = f64;
 
     fn index(&self, index: (usize, usize)) -> &Self::Output {
         &self.data[index.0][index.1]
     }
 }
 
-impl<T> IndexMut<(usize, usize)> for Matrix<T> {
+impl IndexMut<(usize, usize)> for DenseMatrix {
     fn index_mut(&mut self, index: (usize, usize)) -> &mut Self::Output {
         &mut self.data[index.0][index.1]
     }
 }
 
-impl<T: fmt::Display> fmt::Display for Matrix<T> {
+impl fmt::Display for DenseMatrix {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for row in self.data.iter() {
             write!(f, "| ")?;
@@ -58,35 +58,49 @@ impl<T: fmt::Display> fmt::Display for Matrix<T> {
 }
 
 #[derive(Clone)]
-pub struct Vector<T> {
+pub struct Vector {
     len: usize,
-    data: Vec<T>,
+    data: Vec<f64>,
 }
 
-impl<T: Copy> Vector<T> {
-    pub fn repeat(len: usize, value: T) -> Vector<T> {
+impl Vector {
+    pub fn zero(len: usize) -> Vector {
         Vector {
             len,
-            data: vec![value; len],
+            data: vec![0.; len],
         }
+    }
+
+    pub fn squared_norm(&self) -> f64 {
+        let mut res = 0.;
+
+        for x in self.data.iter() {
+            res += x.exp2();
+        }
+
+        res
+    }
+
+    pub fn squared_diff(&self, other: &Vector) -> f64 {
+        (self.squared_norm() - other.squared_norm()).abs()
     }
 }
 
-impl<T> Index<usize> for Vector<T> {
-    type Output = T;
+impl Index<usize> for Vector {
+    type Output = f64;
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.data[index]
     }
 }
 
-impl<T> IndexMut<usize> for Vector<T> {
+impl IndexMut<usize> for Vector {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.data[index]
     }
 }
 
-impl<T: fmt::Display> fmt::Display for Vector<T> {
+impl fmt::Display for Vector {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "| ")?;
         for el in self.data.iter() {
@@ -103,7 +117,7 @@ pub enum LinAlgError {
     IncompatibleDimensions,
 }
 
-pub fn solve(a: Matrix<f64>, rhs: Vector<f64>) -> Result<Vector<f64>, LinAlgError> {
+pub fn solve(a: DenseMatrix, rhs: Vector) -> Result<Vector, LinAlgError> {
     if a.num_col != a.num_rows || rhs.len != a.num_col {
         return Err(LinAlgError::IncompatibleDimensions);
     }
@@ -143,7 +157,7 @@ pub fn solve(a: Matrix<f64>, rhs: Vector<f64>) -> Result<Vector<f64>, LinAlgErro
         }
     }
 
-    let mut x = Vector::repeat(n, 0.);
+    let mut x = Vector::zero(n);
 
     for i in (0..n).rev() {
         x[i] = system[(i, n)];

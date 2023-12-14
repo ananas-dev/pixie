@@ -102,7 +102,17 @@ pub fn compile_nonlinear(
 
                 // TODO: label consts
                 let vt = 2.5852E-2;
-                let voltage = last_x[n - 1] - last_x[p - 1];
+
+                let mut voltage = 0.;
+
+                if n != GND {
+                    voltage += last_x[n - 1];
+                }
+
+                if p != GND {
+                    voltage -= last_x[p - 1];
+                }
+
                 let current = is * (f64::exp(voltage / vt) - 1.);
 
                 let d = current / vt;

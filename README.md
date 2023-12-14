@@ -2,10 +2,8 @@
 
 A small circuit simulator made for the purpose of learning.
 
-## State
+## Usage
 
-It supports current/voltage sources and resistors.
-
-### Example circuit
-
-![](resources/graph.png)
+```sh
+cargo run --release -- test/diode.net
+```

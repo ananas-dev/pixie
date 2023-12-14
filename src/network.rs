@@ -1,4 +1,4 @@
-use std::{collections::HashSet, slice::Iter};
+use std::{collections::HashSet, slice::Iter, str::FromStr, error::Error};
 
 pub const GND: usize = 0;
 
@@ -21,6 +21,14 @@ impl Network {
         self.components.iter()
     }
 
+}
+
+impl FromStr for Network {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(NetworkBuilder::from_str(s)?.build())
+    }
 }
 
 pub struct NetworkBuilder {
@@ -83,5 +91,56 @@ impl NetworkBuilder {
             self.nodes.insert(b);
             self.num_nodes += 1;
         }
+    }
+}
+
+impl FromStr for NetworkBuilder {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut builder = NetworkBuilder::new();
+
+        for l in s.lines() {
+            let tokens: Vec<&str> = l.split_whitespace().collect();
+
+            if tokens.is_empty() {
+                continue;
+            }
+
+            match tokens[0].chars().next().ok_or(())? {
+                'R' => {
+                    let a = tokens[1].parse().map_err(|_| ())?;
+                    let b = tokens[2].parse().map_err(|_| ())?;
+                    let r = tokens[3].parse().map_err(|_| ())?;
+
+                    builder = builder.add_component(Component::Resistor { a, b, r });
+                },
+                'V' => {
+                    let n = tokens[1].parse().map_err(|_| ())?;
+                    let p = tokens[2].parse().map_err(|_| ())?;
+                    let v = tokens[3].parse().map_err(|_| ())?;
+
+                    builder = builder.add_component(Component::VoltageSource { n, p, v });
+                },
+                'I' => {
+                    let n = tokens[1].parse().map_err(|_| ())?;
+                    let p = tokens[2].parse().map_err(|_| ())?;
+                    let i = tokens[3].parse().map_err(|_| ())?;
+
+                    builder = builder.add_component(Component::CurrentSource { n, p, i});
+                },
+                'D' => {
+                    let n = tokens[1].parse().map_err(|_| ())?;
+                    let p = tokens[2].parse().map_err(|_| ())?;
+                    let is = tokens[3].parse().map_err(|_| ())?;
+                    let t = tokens[4].parse().map_err(|_| ())?;
+
+                    builder = builder.add_component(Component::Diode { n, p, is, t });
+                }
+                _ => return Err(())
+            }
+        }
+
+        Ok(builder)
     }
 }

@@ -3,12 +3,7 @@ use std::{
     fs,
 };
 
-use solver::solve_dc;
-
-mod linalg;
-mod network;
-mod solver;
-mod sparse;
+use pixie::solver::solve_dc;
 
 fn main() {
     let args: Vec<String> = env::args().collect();

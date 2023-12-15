@@ -1,4 +1,4 @@
-use std::{collections::HashSet, slice::Iter, str::FromStr, error::Error};
+use std::{collections::HashSet, slice::Iter, str::FromStr};
 
 pub const GND: usize = 0;
 

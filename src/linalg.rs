@@ -9,7 +9,7 @@ pub struct DenseMatrix {
 }
 
 impl DenseMatrix {
-    pub fn zero(r: usize, c: usize) -> DenseMatrix {
+    pub fn zeros(r: usize, c: usize) -> DenseMatrix {
         DenseMatrix {
             num_rows: r,
             num_col: c,
@@ -64,7 +64,7 @@ pub struct Vector {
 }
 
 impl Vector {
-    pub fn zero(len: usize) -> Vector {
+    pub fn zeros(len: usize) -> Vector {
         Vector {
             len,
             data: vec![0.; len],
@@ -157,7 +157,7 @@ pub fn solve(a: DenseMatrix, rhs: Vector) -> Result<Vector, LinAlgError> {
         }
     }
 
-    let mut x = Vector::zero(n);
+    let mut x = Vector::zeros(n);
 
     for i in (0..n).rev() {
         x[i] = system[(i, n)];

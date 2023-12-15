@@ -1,6 +1,6 @@
 use crate::{
-    linalg::{DenseMatrix, Vector, solve},
-    network::{Component, Network, GND},
+    linalg::{Vector, solve},
+    network::{Component, Network, GND}, sparse::CooMatrix,
 };
 
 #[derive(Debug)]
@@ -11,12 +11,12 @@ pub enum SolveError {
 
 pub fn solve_dc(net: &Network) -> Result<Vector, SolveError> {
     let n = net.num_nodes + net.num_vsrc;
-    let mut j = DenseMatrix::zero(n, n);
-    let mut rhs = Vector::zero(n);
+    let mut j = CooMatrix::new(n, n);
+    let mut rhs = Vector::zeros(n);
 
     compile_linear(net, &mut j, &mut rhs);
 
-    let mut last_x = Vector::zero(n);
+    let mut last_x = Vector::zeros(n);
 
     let max_iter = 10000;
 
@@ -26,7 +26,7 @@ pub fn solve_dc(net: &Network) -> Result<Vector, SolveError> {
 
         compile_nonlinear(net, &mut j, &mut rhs, &last_x);
 
-        let x = solve(j, rhs).map_err(|_| SolveError::InvalidCircuit)?;
+        let x = solve(j.to_dense(), rhs).map_err(|_| SolveError::InvalidCircuit)?;
 
         if x.squared_diff(&last_x) <= 0.00001 {
             return Ok(x);
@@ -38,7 +38,7 @@ pub fn solve_dc(net: &Network) -> Result<Vector, SolveError> {
     Err(SolveError::NoConvergence)
 }
 
-pub fn compile_linear(net: &Network, j: &mut DenseMatrix, rhs: &mut Vector) {
+pub fn compile_linear(net: &Network, j: &mut CooMatrix, rhs: &mut Vector) {
     let mut vsrc_counter = 0;
 
     for c in net.iter() {
@@ -47,16 +47,16 @@ pub fn compile_linear(net: &Network, j: &mut DenseMatrix, rhs: &mut Vector) {
                 let conductance = 1. / r;
 
                 if a != GND {
-                    j[(a - 1, a - 1)] += conductance;
+                    j.add(a - 1, a - 1, conductance);
                 }
 
                 if b != GND {
-                    j[(b - 1, b - 1)] += conductance;
+                    j.add(b - 1, b - 1, conductance);
                 }
 
                 if a != GND && b != GND {
-                    j[(a - 1, b - 1)] -= conductance;
-                    j[(b - 1, a - 1)] -= conductance;
+                    j.add(a - 1, b - 1,  -conductance);
+                    j.add(b - 1, a - 1, - conductance);
                 }
             }
             Component::CurrentSource { p, n, i } => {
@@ -73,13 +73,13 @@ pub fn compile_linear(net: &Network, j: &mut DenseMatrix, rhs: &mut Vector) {
                 vsrc_counter += 1;
 
                 if p != GND {
-                    j[(abs_index, p - 1)] = 1.;
-                    j[(p - 1, abs_index)] = 1.;
+                    j.add(abs_index, p - 1, 1.);
+                    j.add(p - 1, abs_index, 1.);
                 }
 
                 if n != GND {
-                    j[(abs_index, n - 1)] = -1.;
-                    j[(n - 1, abs_index)] = -1.;
+                    j.add(abs_index, n - 1, -1.);
+                    j.add(n - 1, abs_index, -1.);
                 }
 
                 rhs[abs_index] = v;
@@ -91,13 +91,13 @@ pub fn compile_linear(net: &Network, j: &mut DenseMatrix, rhs: &mut Vector) {
 
 pub fn compile_nonlinear(
     net: &Network,
-    j: &mut DenseMatrix,
+    j: &mut CooMatrix,
     rhs: &mut Vector,
     last_x: &Vector,
 ) {
     for c in net.iter() {
         match *c {
-            Component::Diode { n, p, is, t } => {
+            Component::Diode { n, p, is, t: _ } => {
                 // This is a bad lineariser because it can produces infinite values
 
                 // TODO: label consts
@@ -118,18 +118,18 @@ pub fn compile_nonlinear(
                 let d = current / vt;
 
                 if p != GND {
-                    j[(p - 1, p - 1)] += d;
+                    j.add(p - 1, p - 1, d);
                     rhs[p - 1] += current * (1. - voltage/vt);
                 }
 
                 if n != GND {
-                    j[(n - 1, n - 1)] += d;
+                    j.add(n - 1, n - 1, d);
                     rhs[n - 1] -= current * (1. - voltage/vt);
                 }
 
                 if p != GND && n != GND {
-                    j[(p - 1, n - 1)] -= d;
-                    j[(n - 1, p - 1)] -= d;
+                    j.add(p - 1, n - 1, -d);
+                    j.add(n - 1, p - 1, -d);
                 }
             }
             _ => {}

@@ -84,6 +84,10 @@ impl Vector {
     pub fn squared_diff(&self, other: &Vector) -> f64 {
         (self.squared_norm() - other.squared_norm()).abs()
     }
+
+    pub fn to_vec(self) -> Vec<f64> {
+        self.data
+    }
 }
 
 impl Index<usize> for Vector {

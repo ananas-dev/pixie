@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 #include "raylib.h"
 #include "rlgl.h"
 #include "raymath.h"
@@ -8,60 +9,82 @@
 #define GRID_WIDTH 50
 #define GRID_HEIGHT 30
 #define CELL_SIZE 50
-#define NUM_COMPONENTS 4
-
-// Dynamic array implementation
-
-typedef struct {
-    Component_t* array;
-    size_t used;
-    size_t size;
-} Array;
-
-void insertArray(Array *a, Component_t component) {
-  // a->used is the number of used entries, because a->array[a->used++] updates a->used only *after* the array has been accessed.
-  // Therefore a->used can go up to a->size 
-  if (a->used == a->size) {
-    a->size *= 2;
-    a->array = realloc(a->array, a->size * sizeof(int));
-  }
-  a->array[a->used++] = component;
-}
-
-void removeArray(Array *a, int index) {
-    int sizeOfArray = a->size;
-    int* temp = malloc((sizeOfArray - 1) * sizeof(int)); // allocate an array with a size 1 less than the current one
-
-    if (index != 0)
-        memcpy(temp, a, index * sizeof(int)); // copy everything BEFORE the index
-
-    if (index != (sizeOfArray - 1))
-        memcpy(temp+index, a+index+1, (sizeOfArray - index - 1) * sizeof(int)); // copy everything AFTER the index
-          
-    free(a);
-    return temp;
-}
-
-void freeArray(Array *a) {
-  free(a->array);
-  a->array = NULL;
-  a->used = a->size = 0;
-}
-
-
 
 int resistorCount = 0;
 int currentSourceCount = 0;
 int voltageSourceCount = 0;
 int diodeCount = 0;
 
-Component_t components[];
+Component_t components[10];
 
-void drawResistor(Texture2D resistorTexture, int cellX, int cellY){
+/****
+
+Component drawing functions
+
+****/
+Texture2D resistorTexture;
+Texture2D currentSourceTexture;
+Texture2D voltageSourceTexture;
+Texture2D diodeTexture;
+
+void drawResistor(Resistor_t resistor, Texture2D resistorTexture){
+    int cellX = resistor.a.x;
+    int cellY = resistor.a.y;
     DrawTexture(resistorTexture, cellX*CELL_SIZE, cellY*CELL_SIZE - resistorTexture.height/2, WHITE);
-    char* text = (char*) malloc(4); // R + 2 digits + '\0' 
-    sprintf(text, "R%d", resistorCount);
-    DrawText(text, cellX*CELL_SIZE + resistorTexture.width / 2 - 10, cellY*CELL_SIZE - resistorTexture.height + 10, 25, WHITE);
+    char name[4]; // R + 2 digits + '\0' 
+    char value[10]; // Resistor value with scientific notation
+    sprintf(name, "R%d", resistor.id);
+    sprintf(value, "%.3e", resistor.r);
+    DrawText(name, cellX*CELL_SIZE + resistorTexture.width / 2 - MeasureText(name, 25)/2, cellY*CELL_SIZE - resistorTexture.height + 25, 25, WHITE);
+    DrawText(value, cellX*CELL_SIZE + resistorTexture.width / 2 - MeasureText(value, 25)/2, cellY*CELL_SIZE + 25, 25, WHITE);
+}
+
+void drawCurrentSource(CurrentSource_t currentSource, Texture2D currentSourceTexture){
+    int cellX = currentSource.p.x;
+    int cellY = currentSource.p.y;
+    DrawTexture(currentSourceTexture, cellX*CELL_SIZE, cellY*CELL_SIZE - currentSourceTexture.height/2, WHITE);
+    char name[4]; // R + id
+    char value[10]; // Current value with scientific notation
+    sprintf(name, "I%d", currentSource.id);
+    sprintf(value, "%.3e", currentSource.i);
+    DrawText(name, cellX*CELL_SIZE + currentSourceTexture.width / 2 - MeasureText(name, 25)/2, cellY*CELL_SIZE - currentSourceTexture.height + 25, 25, WHITE);
+    DrawText(value, cellX*CELL_SIZE + currentSourceTexture.width / 2 - MeasureText(value, 25)/2, cellY*CELL_SIZE + 25, 25, WHITE);
+}
+
+void drawVoltageSource(VoltageSource_t voltageSource, Texture2D voltageSourceTexture){
+    int cellX = voltageSource.p.x;
+    int cellY = voltageSource.p.y;
+    DrawTexture(voltageSourceTexture, cellX*CELL_SIZE, cellY*CELL_SIZE - voltageSourceTexture.height/2, WHITE);
+    char name[4]; // R + id
+    char value[10]; // Voltage value with scientific notation
+    sprintf(name, "V%d", voltageSource.id);
+    sprintf(value, "%.3e", voltageSource.v);
+    DrawText(name, cellX*CELL_SIZE + voltageSourceTexture.width / 2 - MeasureText(name, 25)/2, cellY*CELL_SIZE - voltageSourceTexture.height + 25, 25, WHITE);
+    DrawText(value, cellX*CELL_SIZE + voltageSourceTexture.width / 2 - MeasureText(value, 25)/2, cellY*CELL_SIZE + 25, 25, WHITE);
+}
+
+void drawDiode(Diode_t diode, Texture2D diodeTexture){
+    int cellX = diode.p.x;
+    int cellY = diode.p.y;
+    DrawTexture(diodeTexture, cellX*CELL_SIZE, cellY*CELL_SIZE - diodeTexture.height/2, WHITE);
+    char name[4]; // R + id
+    char value[10]; // Voltage value with scientific notation
+    sprintf(name, "V%d", diode.id);
+    sprintf(value, "%.3e", diode.is);
+    DrawText(name, cellX*CELL_SIZE + diodeTexture.width / 2 - MeasureText(name, 25)/2, cellY*CELL_SIZE - diodeTexture.height + 25, 25, WHITE);
+    DrawText(value, cellX*CELL_SIZE + diodeTexture.width / 2 - MeasureText(value, 25)/2, cellY*CELL_SIZE + 25, 25, WHITE);
+}
+
+
+void drawComponent(Component_t component) {
+    componentType type = component.type;
+
+    switch (type) {
+        case RESISTOR : drawResistor(component.as.resistor, resistorTexture); break;
+        case CURRENTSOURCE : drawCurrentSource(component.as.current, currentSourceTexture); break;
+        case VOLTAGESOURCE : drawVoltageSource(component.as.voltage, voltageSourceTexture); break;
+        case DIODE : drawDiode(component.as.diode, diodeTexture);
+    }
 }
 
 
@@ -82,12 +105,40 @@ int main()
 
     InitWindow(screenWidth, screenHeight, "Pixie");
 
-    Texture2D resistorTexture = LoadTexture("resources/Resistor.png");
-
+    // Loads and resize components texture
+    resistorTexture = LoadTexture("resources/Resistor.png");
     float aspectRatio = resistorTexture.width / resistorTexture.height;
     resistorTexture.width = 3*CELL_SIZE;
     resistorTexture.height = resistorTexture.width / aspectRatio;
-    
+
+    currentSourceTexture = LoadTexture("resources/Current_Source.png");
+    aspectRatio = currentSourceTexture.width / currentSourceTexture.height;
+    currentSourceTexture.width = 3*CELL_SIZE;
+    currentSourceTexture.height = currentSourceTexture.width / aspectRatio;
+
+    voltageSourceTexture = LoadTexture("resources/DC_Voltage.png");
+    aspectRatio = voltageSourceTexture.width / voltageSourceTexture.height;
+    voltageSourceTexture.width = 3*CELL_SIZE;
+    voltageSourceTexture.height = voltageSourceTexture.width / aspectRatio;
+
+    diodeTexture = LoadTexture("resources/Diode.png");
+    aspectRatio = diodeTexture.width / diodeTexture.height;
+    diodeTexture.width = 3*CELL_SIZE;
+    diodeTexture.height = diodeTexture.width / aspectRatio;
+
+
+    Resistor_t r1 = {0, {10, 10}, {13, 10}, 330};
+    Component_t r1_comp;
+    r1_comp.type = RESISTOR;
+    r1_comp.as.resistor = r1;
+
+    Diode_t d1 = {0, {12, 15}, {15, 15}, 0.7};
+    Component_t d1_comp;
+    d1_comp.type = DIODE;
+    d1_comp.as.diode = d1;
+
+    components[0] = r1_comp;
+    components[1] = d1_comp;
 
     Camera2D camera = {0};
     camera.zoom = 1.0f;
@@ -99,9 +150,9 @@ int main()
     int mouseHoverComponents = -1; // Index of the component currently hovered (-1 if the mouse is not on a component)
     componentType selectedComponent = NONE; // Type of the selected component, NONE if no component is selected (see components.h for definition)
 
-    float rectangleWidth = 250;
-    float rectangleHeight = 100;
-    for (int i = 0; i < NUM_COMPONENTS; i++) toggleComponents[i] = (Rectangle){ 10, (float)(2*rectangleHeight + rectangleHeight*i), rectangleWidth, rectangleHeight };
+    const float rectangleWidth = 250;
+    const float rectangleHeight = 100;
+    for (int i = 0; i < NUM_COMPONENTS; i++) toggleComponents[i] = (Rectangle){ 10, (float)(100 + rectangleHeight*i), rectangleWidth, rectangleHeight };
 
     SetTargetFPS(60);
 
@@ -152,7 +203,6 @@ int main()
             }
         }
 
-        if(mouseHoverComponents != -1) printf("%s\n", componentsName[mouseHoverComponents]);
 
         float gridx = floorf(mouseWorldPos.x / CELL_SIZE);
         float gridy = floorf(mouseWorldPos.y / CELL_SIZE);
@@ -179,11 +229,6 @@ int main()
         DrawRectangleV((Vector2){0, -borderSize}, (Vector2){50 * 50, borderSize}, borderColor);
         DrawRectangleV((Vector2){0, 50 * 30}, (Vector2){50 * 50, borderSize}, borderColor);
 
-        //DrawTexture(resistorTexture, 0, 500 - resistorTexture.height / 2, WHITE);
-        //DrawText("R1", 500 - 10 + resistorTexture.width / 2, 500 - resistorTexture.height - 10, 20, WHITE);
-        drawResistor(resistorTexture, 5, 10);
-        drawResistor(resistorTexture, 12, 0);
-        drawResistor(resistorTexture, 0, 12);
 
         for (int dx = 0; dx <= 1; dx++) {
             for (int dy = 0; dy <= 1; dy++) {
@@ -215,12 +260,18 @@ int main()
             DrawCircle(wiringOrigin.x, wiringOrigin.y, 8, WHITE);
         }
 
+
+        // Draw components
+        drawComponent(components[0]);
+        drawComponent(components[1]);
+        
+
         EndMode2D();
 
         DrawText("Pixie v0.1", 10, 10, 20, WHITE);
 
         // Component selection menu 
-        DrawText("Select a component", 10, 50, 20, WHITE);
+        DrawText("Select a component", 40, 50, 20, WHITE);
         
         for (int i = 0; i < NUM_COMPONENTS; i++)
         {
